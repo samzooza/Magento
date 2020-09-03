@@ -8,7 +8,6 @@ return [
         'Magento_Variable' => 1,
         'Magento_Eav' => 1,
         'Magento_AdminNotification' => 1,
-        'Learning_GreetingMessage' => 1,
         'MSP_ReCaptcha' => 1,
         'Magento_Config' => 1,
         'Magento_Indexer' => 1,
