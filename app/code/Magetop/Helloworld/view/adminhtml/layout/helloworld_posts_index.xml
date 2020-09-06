@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/**
+ * helloworld_posts_index
+ *
+ * @copyright Copyright © 2020 Magetop. All rights reserved.
+ * @author    info@magetop.com
+ */
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <update handle="formkey"/>
+    <update handle="helloworld_posts_grid_block"/>
+    <body>
+        <referenceContainer name="content">
+            <block class="Magetop\Helloworld\Block\Adminhtml\Posts" name="helloworld_posts_grid_block.grid.container" />
+        </referenceContainer>
+    </body>
+</page>

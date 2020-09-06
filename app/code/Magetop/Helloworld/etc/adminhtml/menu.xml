@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/**
+ * menu
+ *
+ * @copyright Copyright © 2020 Magetop. All rights reserved.
+ * @author    info@magetop.com
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Backend:etc/menu.xsd">
+    <menu>
+        <add id="Magetop_Helloworld::helloworld_menu" title="Magetop Helloworld" module="Magetop_Helloworld" sortOrder="20" resource="Magetop_Helloworld::helloworld" />
+        <add id="Magetop_Helloworld::posts_menu" title="Magetop Helloworld" module="Magetop_Helloworld" sortOrder="1" parent="Magetop_Helloworld::helloworld_menu" action="helloworld/posts/index" resource="Magetop_Helloworld::posts" />
+    </menu>
+</config>

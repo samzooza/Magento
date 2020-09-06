@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/**
+ * helloworld_posts_grid
+ *
+ * @copyright Copyright © 2020 Magetop. All rights reserved.
+ * @author    info@magetop.com
+ */
+-->
+<layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/layout_generic.xsd">
+    <update handle="formkey"/>
+    <update handle="helloworld_posts_grid_block"/>
+    <container name="root">
+        <block class="Magento\Backend\Block\Widget\Grid\Container" name="helloworld_posts_grid_block.grid.container" template="Magento_Backend::widget/grid/container/empty.phtml"/>
+    </container>
+</layout>
