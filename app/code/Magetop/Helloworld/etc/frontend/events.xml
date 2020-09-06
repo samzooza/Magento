@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/**
+ * events
+ *
+ * @copyright Copyright © 2020 Magetop. All rights reserved.
+ * @author    info@magetop.com
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="magetop_hello_display_text_before">
+        <observer name="mb_show_text" instance="Magetop\Helloworld\Observer\DisplayText" />
+    </event>
+</config>

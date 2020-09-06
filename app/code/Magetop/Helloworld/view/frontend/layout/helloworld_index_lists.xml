@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/**
+ * helloworld_index_lists
+ *
+ * @copyright Copyright © 2020 Magetop. All rights reserved.
+ * @author    info@magetop.com
+ */
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" layout="1column" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Magetop_Helloworld::css/style.css" />
+    </head>
+    <body>
+        <referenceContainer name="content">
+            <block class="Magetop\Helloworld\Block\Posts" name="magetop.helloworld.posts" template="Magetop_Helloworld::items.phtml" />
+        </referenceContainer>
+    </body>
+</page>

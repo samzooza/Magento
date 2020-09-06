@@ -1,0 +1,20 @@
+<?php
+/** @var \Magetop\Helloworld\Block\Posts $block*/
+?>
+<?php $posts = $block->getPostItems(); ?>
+<div class="post-content">
+    <table style="width:100%">
+        <tr>
+            <th><?php echo __('Title') ?></th>
+            <th><?php echo __('Description') ?></th>
+        </tr>
+        <?php if(count($posts)) : ?>
+            <?php foreach ($posts as $post) : ?>
+                <tr>
+                    <td><?php echo $post->getTitle() ?></td>
+                    <td><?php echo $post->getDescription() ?></td>
+                </tr>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </table>
+</div>
