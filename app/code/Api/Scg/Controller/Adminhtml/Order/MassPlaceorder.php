@@ -7,6 +7,8 @@ use Magento\Backend\App\Action\Context;
 use Magento\Ui\Component\MassAction\Filter;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
 use Magento\Sales\Api\OrderManagementInterface;
+use Zend\Http\Request;
+use Zend\Http\Client;
 
 /**
  * Class MassPlaceorder
@@ -43,34 +45,37 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
      */
     protected function massAction(AbstractCollection $collection)
     {
-        // $countDeleteOrder = 0;
-        // $model = $this->_objectManager->create('Magento\Sales\Model\Order');
-        // foreach ($collection->getItems() as $order) {
-        //     if (!$order->getEntityId()) {
-        //         continue;
-        //     }
-        //     $loadedOrder = $model->load($order->getEntityId());
-        //     $loadedOrder->delete();
-        //     $countDeleteOrder++;
-        // }
-        // $countNonDeleteOrder = $collection->count() - $countDeleteOrder;
+        $trackingnumber = '';
 
-        // if ($countNonDeleteOrder && $countDeleteOrder) {
-        //     $this->messageManager->addError(__('%1 order(s) were not deleted.', $countNonDeleteOrder));
-        // } elseif ($countNonDeleteOrder) {
-        //     $this->messageManager->addError(__('No order(s) were deleted.'));
-        // }
+        try 
+        {
+            //document: https://framework.zend.com/manual/2.0/en/modules/zend.http.client.html
+            $request = new Request();
+            $request->setUri('https://reqres.in/api/users');
+            $request->setMethod('POST');
+            //$request->getPost()->set('foo', 'bar');
 
-        // if ($countDeleteOrder) {
-        //     $this->messageManager->addSuccess(__('You have deleted %1 order(s).', $countDeleteOrder));
-        // }
+            $client = new Client();
+            $client->setOptions(array('maxredirects' => 0, 'timeout' => 30));
+            $response = $client->dispatch($request);
+
+            if ($response->isSuccess()) {
+                $obj = json_decode($response->getbody(), true);
+                $trackingnumber = $obj["id"];
+            }
+        }
+        catch (\Zend\Http\Exception\RuntimeException $runtimeException) 
+        {
+            echo $runtimeException->getMessage();
+        }
 
         $model = $this->_objectManager->create('Magento\Sales\Model\Order');        
         foreach ($collection->getItems() as $order) {
-            // // Check if order has already shipped or can be shipped
-            // if (! $order->canShip()) {
-            //     $this->messageManager->addError(__('You can\'t create an shipment.'));
-            // }
+            // Check if order has already shipped or can be shipped
+            if (! $order->canShip()) {
+                $this->messageManager->addError(__('ID '.$order->getEntityId().': You can\'t create an shipment.'));
+                continue;
+            }
 
             // Initialize the order shipment object
             $convertOrder = $this->_objectManager->create('Magento\Sales\Model\Convert\Order');
@@ -98,7 +103,7 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
             $data = array(
                 'carrier_code' => 'Custom Value',
                 'title' => 'SCG Express',
-                'number' => 'TORD23254WERZXd3', // Replace with your tracking number
+                'number' => $trackingnumber, // Replace with your tracking number
             );
 
             $shipment->getOrder()->setIsInProcess(true);
