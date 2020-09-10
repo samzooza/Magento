@@ -7,7 +7,6 @@ use Magento\Backend\App\Action\Context;
 use Magento\Ui\Component\MassAction\Filter;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
 use Magento\Sales\Api\OrderManagementInterface;
-use Zend\Http\Request;
 use Zend\Http\Client;
 
 /**
@@ -45,28 +44,66 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
      */
     protected function massAction(AbstractCollection $collection)
     {
-        $trackingnumber = '';
-
+        $token = '';
+        $trackingNumber = '';
+        // authentication
         try 
         {
-            //document: https://framework.zend.com/manual/2.0/en/modules/zend.http.client.html
-            $request = new Request();
-            $request->setUri('https://reqres.in/api/users');
-            $request->setMethod('POST');
-            //$request->getPost()->set('foo', 'bar');
-
+            //document: https://framework.zend.com/manual/2.4/en/modules/zend.http.client.html
             $client = new Client();
+            $client->setUri('https://scgyamatodev.flare.works/api/authentication');
             $client->setOptions(array('maxredirects' => 0, 'timeout' => 30));
-            $response = $client->dispatch($request);
-
+            $client->setParameterPost(array(
+                'username' => 'info_test@scgexpress.co.th',
+                'password' => 'Initial@1234'
+            ));
+            $client->setMethod('POST');
+            
+            $response = $client->send();
             if ($response->isSuccess()) {
                 $obj = json_decode($response->getbody(), true);
-                $trackingnumber = $obj["id"];
+                $token = $obj["token"];
             }
         }
         catch (\Zend\Http\Exception\RuntimeException $runtimeException) 
         {
-            echo $runtimeException->getMessage();
+            $this->messageManager->addError(__($runtimeException->getMessage()));
+        }
+
+        // place order
+        try 
+        {
+            // $shippingaddress=$order->getShippingAddress()->getData();
+
+            $client = new Client();
+            $client->setUri('https://scgyamatodev.flare.works/api/orderwithouttrackingnumber');
+            $client->setOptions(array('maxredirects' => 1, 'timeout' => 300));
+            $client->setParameterPost(array(
+                'token' => $token,
+                'ShipperCode' => '00214110143',
+                'ShipperName' => 'SAM TEST SCG Landscape',
+                'ShipperTel' => '028888888',
+                'ShipperAddress' => 'Bankok',
+                'ShipperZipcode' => '20000',
+                'DeliveryAddress' => 'Chaingmai', //$shippingaddress->getStreet().' '.$shippingaddress->getCity().' '.$shippingaddress->getPostcode(),
+                'Zipcode' => '20000', //$shippingaddress->getPostcode(),
+                'ContactName' => 'Natthapon Jampasri', //$orders->getCustomerFirstname().' '.$orders->getCustomerLastname(),
+                'Tel' => '12314123', //$shippingaddress->getTelephone(),
+                'OrderCode' => 'ORD985631541', //$order->getEntityId(),
+                'TotalBoxs' => '1',
+                'OrderDate' => '2020-9-10' //date("Y-m-d")
+            ));
+            $client->setMethod('POST');
+            
+            $response = $client->send();
+            if ($response->isSuccess()) {
+                $obj = json_decode($response->getbody(), true);
+                $trackingNumber = $response->getbody();
+            }
+        }
+        catch (\Zend\Http\Exception\RuntimeException $runtimeException) 
+        {
+           $this->messageManager->addError(__($runtimeException->getMessage()));
         }
 
         $model = $this->_objectManager->create('Magento\Sales\Model\Order');        
@@ -103,7 +140,7 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
             $data = array(
                 'carrier_code' => 'Custom Value',
                 'title' => 'SCG Express',
-                'number' => $trackingnumber, // Replace with your tracking number
+                'number' => $trackingNumber, // Replace with your tracking number
             );
 
             $shipment->getOrder()->setIsInProcess(true);
