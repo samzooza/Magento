@@ -60,7 +60,6 @@ return [
         'Magento_Cookie' => 1,
         'Magento_Email' => 1,
         'Magento_CurrencySymbol' => 1,
-        'Api_Scg' => 1,
         'Magento_Analytics' => 1,
         'Magento_CustomerGraphQl' => 1,
         'Magento_CustomerImportExport' => 1,

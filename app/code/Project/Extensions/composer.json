@@ -1,6 +1,6 @@
 {
-    "name": "api/sgc-order-placeorder",
-    "description": "extension for use SCG place order",
+    "name": "project/extensions-order-placeorder",
+    "description": "extensions for the project",
     "type": "magento2-module",
     "version": "1.0.0",
     "license": [
@@ -15,7 +15,7 @@
         "map": [
             [
                 "*",
-                "Api/Scg"
+                "Project/Extensions"
             ]
         ]
     }

@@ -1,12 +1,14 @@
 <?php
 
-namespace Api\Scg\Controller\Adminhtml\Order;
+namespace Project\Extensions\Controller\Adminhtml\Order;
 
 use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
 use Magento\Backend\App\Action\Context;
 use Magento\Ui\Component\MassAction\Filter;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
 use Magento\Sales\Api\OrderManagementInterface;
+
+use Project\Extensions\Model\Scg;
 use Zend\Http\Client;
 
 /**
@@ -16,24 +18,31 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
 {
     /**
      * @var OrderManagementInterface
+     * @var Scg
      */
     protected $orderManagement;
+    protected $scg;
+    private $token = '';
+    private $reAuthenFlag = false;
 
     /**
      * @param Context $context
      * @param Filter $filter
      * @param CollectionFactory $collectionFactory
      * @param OrderManagementInterface $orderManagement
+     * @param Scg $scg
      */
     public function __construct(
         Context $context,
         Filter $filter,
         CollectionFactory $collectionFactory,
-        OrderManagementInterface $orderManagement
+        OrderManagementInterface $orderManagement,
+        \Project\Extensions\Model\Scg $scg
     ) {
         parent::__construct($context, $filter);
         $this->collectionFactory = $collectionFactory;
         $this->orderManagement = $orderManagement;
+        $this->scg = $scg;
     }
 
     /**
@@ -44,68 +53,83 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
      */
     protected function massAction(AbstractCollection $collection)
     {
-        $token = '';
-        $trackingNumber = '';
-        // authentication
-        try 
-        {
-            //document: https://framework.zend.com/manual/2.4/en/modules/zend.http.client.html
-            $client = new Client();
-            $client->setUri('https://scgyamatodev.flare.works/api/authentication');
-            $client->setOptions(array('maxredirects' => 0, 'timeout' => 30));
-            $client->setParameterPost(array(
-                'username' => 'info_test@scgexpress.co.th',
-                'password' => 'Initial@1234'
-            ));
-            $client->setMethod('POST');
-            
-            $response = $client->send();
-            if ($response->isSuccess()) {
-                $obj = json_decode($response->getbody(), true);
-                $token = $obj["token"];
+        $this->token = $this->Authentication();
+
+        $response = $this->PlaceOrder();
+
+        $this->Shipping($response['trackingNumber']);
+
+        return $this->Refresh();
+    }
+
+    protected function Authentication()
+    {   // able to authen only token is empty
+        if($this->token == '')
+        {   // authentication
+            /*  100 - Successful authentication.
+                200 - Missing mandatory variable, 'username'.
+                200 - Missing mandatory variable, 'password'.
+                300 - Authentication failed, username is not valid.
+                300 - Authentication failed, username and password combination is not correct.
+                900 - Service is temporary unavailable, please try again later.
+            */
+            $response = $this->scg->Authentication();
+
+            if($response['status'] != '100')
+            {   // fail, return error
+                $this->messageManager->addError(__($response['message']));
+                return $this->Refresh();
             }
+            else // successful
+                return $response['token'];
         }
-        catch (\Zend\Http\Exception\RuntimeException $runtimeException) 
-        {
-            $this->messageManager->addError(__($runtimeException->getMessage()));
-        }
+        else // return existing one
+            return $this->token;
+    }
 
-        // place order
-        try 
-        {
-            // $shippingaddress=$order->getShippingAddress()->getData();
+    protected function PlaceOrder()
+    {   // place order
+        /*  100 - Successful place order.
+            200 - Missing mandatory variable, 'token'.
+            200 - Missing mandatory variable, 'shipper_code'.
+            300 - Authentication failed, token is not valid.
+            400 - Variable validation / filter failed, 'shipper_code' is not valid.
+            600 - Business rule validation failed, you are not authorize to place order as this shipper_code
+            900 - Service is temporary unavailable, please try again later.
+        */
+        $response = $this->scg->PlaceOrder(
+            $this->token,
+            '00214110143',
+            'SAM TEST SCG Landscape',
+            '028888888',
+            'Bankok',
+            '20000',
+            'Chaingmai', //$shippingaddress->getStreet().' '.$shippingaddress->getCity().' '.$shippingaddress->getPostcode(),
+            '20000', //$shippingaddress->getPostcode(),
+            'Natthapon Jampasri', //$orders->getCustomerFirstname().' '.$orders->getCustomerLastname(),
+            '12314123', //$shippingaddress->getTelephone(),
+            'ORD985631541', //$order->getEntityId(),
+            '1',
+            '2020-9-10'); //date("Y-m-d")
 
-            $client = new Client();
-            $client->setUri('https://scgyamatodev.flare.works/api/orderwithouttrackingnumber');
-            $client->setOptions(array('maxredirects' => 1, 'timeout' => 300));
-            $client->setParameterPost(array(
-                'token' => $token,
-                'ShipperCode' => '00214110143',
-                'ShipperName' => 'SAM TEST SCG Landscape',
-                'ShipperTel' => '028888888',
-                'ShipperAddress' => 'Bankok',
-                'ShipperZipcode' => '20000',
-                'DeliveryAddress' => 'Chaingmai', //$shippingaddress->getStreet().' '.$shippingaddress->getCity().' '.$shippingaddress->getPostcode(),
-                'Zipcode' => '20000', //$shippingaddress->getPostcode(),
-                'ContactName' => 'Natthapon Jampasri', //$orders->getCustomerFirstname().' '.$orders->getCustomerLastname(),
-                'Tel' => '12314123', //$shippingaddress->getTelephone(),
-                'OrderCode' => 'ORD985631541', //$order->getEntityId(),
-                'TotalBoxs' => '1',
-                'OrderDate' => '2020-9-10' //date("Y-m-d")
-            ));
-            $client->setMethod('POST');
-            
-            $response = $client->send();
-            if ($response->isSuccess()) {
-                $obj = json_decode($response->getbody(), true);
-                $trackingNumber = $response->getbody();
-            }
+        if($response['status'] == '300' && !$this->reAuthenFlag)
+        {   // existing token might be expired, try to re-authenticate it  
+            $this->reAuthenFlag = true;
+            $this->token = '';
+            $this->Authentication();
+            return $this->PlaceOrder();
         }
-        catch (\Zend\Http\Exception\RuntimeException $runtimeException) 
-        {
-           $this->messageManager->addError(__($runtimeException->getMessage()));
+        else if($response['status'] != '100' && $this->reAuthenFlag)
+        {   // still unsuccess, return error
+            $this->messageManager->addError(__($response['message']));
+            return $this->Refresh();
         }
+        else
+            return $response;
+    }
 
+    protected function Shipping($trackingNumber): void
+    {
         $model = $this->_objectManager->create('Magento\Sales\Model\Order');        
         foreach ($collection->getItems() as $order) {
             // Check if order has already shipped or can be shipped
@@ -140,7 +164,7 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
             $data = array(
                 'carrier_code' => 'Custom Value',
                 'title' => 'SCG Express',
-                'number' => $trackingNumber, // Replace with your tracking number
+                'number' => $trackingNumber, // Replace with SCG tracking number
             );
 
             $shipment->getOrder()->setIsInProcess(true);
@@ -161,9 +185,11 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
                 $this->messageManager->addError(__($e->getMessage()));
             }
         }
+    }
 
+    protected function Refresh(){
         $resultRedirect = $this->resultRedirectFactory->create();
         $resultRedirect->setPath($this->getComponentRefererUrl());
         return $resultRedirect;
-    }
+    } 
 }

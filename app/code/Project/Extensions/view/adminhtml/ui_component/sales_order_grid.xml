@@ -7,7 +7,7 @@
                         <item name="config" xsi:type="array">
                             <item name="type" xsi:type="string">order_placeorder</item>
                             <item name="label" xsi:type="string" translate="true">Place order to SCG Express</item>
-                            <item name="url" xsi:type="url" path="scg/order/massPlaceorder"/>
+                            <item name="url" xsi:type="url" path="extensions/order/massPlaceorder"/>
                             <item name="confirm" xsi:type="array">
                                 <item name="title" xsi:type="string" translate="true">Comfirm Place Order</item>
                                 <item name="message" xsi:type="string" translate="true">Are you sure place order(s) to SCG Express?</item>
