@@ -1,9 +1,9 @@
 <?php
 namespace Project\Extensions\Model;
 
-use Project\Extensions\Model\DataContext;
+use Project\Extensions\Model\DataAccess\DataAccess as dataAccess;
 
-class Scg extends DataContext
+class Scg extends DataAccess
 {
     private $uri = 'https://scgyamatodev.flare.works';
     private $username = 'info_test@scgexpress.co.th';
@@ -29,13 +29,13 @@ class Scg extends DataContext
                 'ShipperCode' => $shipperCode,
                 'ShipperName' => $shipperName,
                 'ShipperTel' => $shipperTel,
-                'ShipperAddress' => $shippingaddress,
+                'ShipperAddress' => $shipperAddress,
                 'ShipperZipcode' => $shipperZipcode,
                 'DeliveryAddress' => $deliveryAddress,
                 'Zipcode' => $zipcode,
                 'ContactName' => $contactName,
                 'Tel' => $tel,
-                'OrderCode' => $orderDate,
+                'OrderCode' => $orderCode,
                 'TotalBoxs' => $totalBoxs,
                 'OrderDate' => $orderDate));
     }

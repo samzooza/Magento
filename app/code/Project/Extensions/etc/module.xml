@@ -3,7 +3,7 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Module/etc/module.xsd">
     <module name="Project_Extensions" setup_version="0.0.1">
         <sequence>
-            <module name="Project_Extensions"/>
+            <module name="Magento_Sales"/>
         </sequence>
     </module>
 </config>

@@ -1,9 +1,9 @@
 <?php
-namespace Project\Extensions\Model\DataContext;
+namespace Project\Extensions\Model\DataAccess;
 
 use Zend\Http\Client;
 
-class DataContext
+class DataAccess
 {
     public function Post($uri, $arr)
     {

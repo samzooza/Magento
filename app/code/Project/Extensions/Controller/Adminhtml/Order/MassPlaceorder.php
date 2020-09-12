@@ -22,9 +22,9 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
      */
     protected $orderManagement;
     protected $scg;
-    private $token = '';
     private $reAuthenFlag = false;
-
+    private $token = '';
+    
     /**
      * @param Context $context
      * @param Filter $filter
@@ -57,7 +57,7 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
 
         $response = $this->PlaceOrder();
 
-        $this->Shipping($response['trackingNumber']);
+        $this->Shipping($collection, $response['trackingNumber']);
 
         return $this->Refresh();
     }
@@ -65,17 +65,13 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
     protected function Authentication()
     {   // able to authen only token is empty
         if($this->token == '')
-        {   // authentication
-            /*  100 - Successful authentication.
-                200 - Missing mandatory variable, 'username'.
-                200 - Missing mandatory variable, 'password'.
-                300 - Authentication failed, username is not valid.
-                300 - Authentication failed, username and password combination is not correct.
-                900 - Service is temporary unavailable, please try again later.
+        {   // 'status'
+            /*  true - Successful authentication.
+                false - Fail authentication.
             */
             $response = $this->scg->Authentication();
 
-            if($response['status'] != '100')
+            if(!$response['status'])
             {   // fail, return error
                 $this->messageManager->addError(__($response['message']));
                 return $this->Refresh();
@@ -88,14 +84,9 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
     }
 
     protected function PlaceOrder()
-    {   // place order
-        /*  100 - Successful place order.
-            200 - Missing mandatory variable, 'token'.
-            200 - Missing mandatory variable, 'shipper_code'.
-            300 - Authentication failed, token is not valid.
-            400 - Variable validation / filter failed, 'shipper_code' is not valid.
-            600 - Business rule validation failed, you are not authorize to place order as this shipper_code
-            900 - Service is temporary unavailable, please try again later.
+    {   // 'status'
+        /*  true - Successful authentication.
+            false - Fail authentication.
         */
         $response = $this->scg->PlaceOrder(
             $this->token,
@@ -112,23 +103,24 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
             '1',
             '2020-9-10'); //date("Y-m-d")
 
-        if($response['status'] == '300' && !$this->reAuthenFlag)
-        {   // existing token might be expired, try to re-authenticate it  
-            $this->reAuthenFlag = true;
-            $this->token = '';
-            $this->Authentication();
-            return $this->PlaceOrder();
-        }
-        else if($response['status'] != '100' && $this->reAuthenFlag)
-        {   // still unsuccess, return error
-            $this->messageManager->addError(__($response['message']));
-            return $this->Refresh();
-        }
+        if(!$response['status'] && !$this->reAuthenFlag)
+            if(!$this->reAuthenFlag)
+            {   // existing token might be expired, try to re-authenticate it  
+                $this->reAuthenFlag = true;
+                $this->token = '';
+                $this->Authentication();
+                return $this->PlaceOrder();
+            }
+            else
+            {   // still unsuccess, return error
+                $this->messageManager->addError(__($response['message']));
+                return $this->Refresh();
+            }
         else
             return $response;
     }
 
-    protected function Shipping($trackingNumber): void
+    protected function Shipping($collection, $trackingNumber): void
     {
         $model = $this->_objectManager->create('Magento\Sales\Model\Order');        
         foreach ($collection->getItems() as $order) {
