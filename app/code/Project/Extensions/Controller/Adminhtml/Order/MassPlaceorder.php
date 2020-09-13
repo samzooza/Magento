@@ -7,9 +7,9 @@ use Magento\Backend\App\Action\Context;
 use Magento\Ui\Component\MassAction\Filter;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
 use Magento\Sales\Api\OrderManagementInterface;
+use Magento\Customer\Model\Customer;
 
 use Project\Extensions\Model\Scg;
-use Zend\Http\Client;
 
 /**
  * Class MassPlaceorder
@@ -21,8 +21,9 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
      * @var Scg
      */
     protected $orderManagement;
+    protected $customer;
     protected $scg;
-    private $reAuthenFlag = false;
+    private $reAuthenFlag;
     private $token = '';
     
     /**
@@ -37,11 +38,13 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
         Filter $filter,
         CollectionFactory $collectionFactory,
         OrderManagementInterface $orderManagement,
-        \Project\Extensions\Model\Scg $scg
+        Customer $customer,
+        Scg $scg
     ) {
         parent::__construct($context, $filter);
         $this->collectionFactory = $collectionFactory;
         $this->orderManagement = $orderManagement;
+        $this->customer = $customer;
         $this->scg = $scg;
     }
 
@@ -53,11 +56,31 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
      */
     protected function massAction(AbstractCollection $collection)
     {
+        // authentication
+        $this->reAuthenFlag = false;
         $this->token = $this->Authentication();
 
-        $response = $this->PlaceOrder();
+        $model = $this->_objectManager->create('Magento\Sales\Model\Order');
 
-        $this->Shipping($collection, $response['trackingNumber']);
+        foreach ($collection->getItems() as $order)
+        {   // check the order can ship out
+            if (! $order->canShip()) {
+                $this->messageManager->addError(__('ID '.$order->getEntityId().': You can\'t create an shipment.'));
+                continue;
+            }
+
+            // place order to SCG Express
+            $response = $this->PlaceOrder($order);
+            if(!$response['status'])
+            {
+                $this->messageManager->addError(__('ID '.$order->getEntityId().': '.$response['message']));
+                continue;
+            }
+
+            $this->Ship($order, $response['trackingNumber']);
+        }
+
+        $this->messageManager->addSuccess(__('ID '.$order->getEntityId().': Process successful.'));
 
         return $this->Refresh();
     }
@@ -65,10 +88,7 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
     protected function Authentication()
     {   // able to authen only token is empty
         if($this->token == '')
-        {   // 'status'
-            /*  true - Successful authentication.
-                false - Fail authentication.
-            */
+        {
             $response = $this->scg->Authentication();
 
             if(!$response['status'])
@@ -83,99 +103,89 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
             return $this->token;
     }
 
-    protected function PlaceOrder()
-    {   // 'status'
-        /*  true - Successful authentication.
-            false - Fail authentication.
-        */
+    protected function PlaceOrder($order)
+    {
+        $shippingAddress = $order->getShippingAddress();
+
         $response = $this->scg->PlaceOrder(
             $this->token,
-            '00214110143',
-            'SAM TEST SCG Landscape',
-            '028888888',
+            '10214110143',
+            'SAS Online Shop',
+            '0999999997',
             'Bankok',
-            '20000',
-            'Chaingmai', //$shippingaddress->getStreet().' '.$shippingaddress->getCity().' '.$shippingaddress->getPostcode(),
-            '20000', //$shippingaddress->getPostcode(),
-            'Natthapon Jampasri', //$orders->getCustomerFirstname().' '.$orders->getCustomerLastname(),
-            '12314123', //$shippingaddress->getTelephone(),
-            'ORD985631541', //$order->getEntityId(),
+            '10000',
+            $shippingAddress->getData("street").' '.$shippingAddress->getData("city"),
+            $shippingAddress->getData("postcode"),
+            $shippingAddress->getData("firstname").' '.$shippingAddress->getData("lastname"),
+            $shippingAddress->getData("telephone"),
+            $order->getEntityId(),
             '1',
-            '2020-9-10'); //date("Y-m-d")
-
-        if(!$response['status'] && !$this->reAuthenFlag)
+            date("Y-m-d"));
+        
+        // fail safe: existing token might be expired, try to re-authenticate to get a new one
+        if(!$response['status'] && !$this->reAuthenFlag && $response['message'] == 'token is not valid')
             if(!$this->reAuthenFlag)
-            {   // existing token might be expired, try to re-authenticate it  
+            {
                 $this->reAuthenFlag = true;
                 $this->token = '';
                 $this->Authentication();
-                return $this->PlaceOrder();
+                return $this->PlaceOrder($order);
             }
-            else
-            {   // still unsuccess, return error
-                $this->messageManager->addError(__($response['message']));
-                return $this->Refresh();
-            }
-        else
-            return $response;
+        
+        return $response;
     }
 
-    protected function Shipping($collection, $trackingNumber): void
+    protected function Ship($order, $trackingNumerObj): void
     {
-        $model = $this->_objectManager->create('Magento\Sales\Model\Order');        
-        foreach ($collection->getItems() as $order) {
-            // Check if order has already shipped or can be shipped
-            if (! $order->canShip()) {
-                $this->messageManager->addError(__('ID '.$order->getEntityId().': You can\'t create an shipment.'));
+        // initialize the order shipment object
+        $convertOrder = $this->_objectManager->create('Magento\Sales\Model\Convert\Order');
+        $shipment = $convertOrder->toShipment($order);
+
+        // loop through order items
+        foreach ($order->getAllItems() AS $orderItem) {
+            // check if order item is virtual or has quantity to ship
+            if (! $orderItem->getQtyToShip() || $orderItem->getIsVirtual()) {
                 continue;
             }
 
-            // Initialize the order shipment object
-            $convertOrder = $this->_objectManager->create('Magento\Sales\Model\Convert\Order');
-            $shipment = $convertOrder->toShipment($order);
+            $qtyShipped = $orderItem->getQtyToShip();
 
-            // Loop through order items
-            foreach ($order->getAllItems() AS $orderItem) {
-                // Check if order item is virtual or has quantity to ship
-                if (! $orderItem->getQtyToShip() || $orderItem->getIsVirtual()) {
-                    continue;
-                }
+            // create shipment item with qty
+            $shipmentItem = $convertOrder->itemToShipmentItem($orderItem)->setQty($qtyShipped);
 
-                $qtyShipped = $orderItem->getQtyToShip();
+            // add shipment item to shipment
+            $shipment->addItem($shipmentItem);
+        }
 
-                // Create shipment item with qty
-                $shipmentItem = $convertOrder->itemToShipmentItem($orderItem)->setQty($qtyShipped);
+        // register shipment
+        $shipment->register();
 
-                // Add shipment item to shipment
-                $shipment->addItem($shipmentItem);
-            }
+        $trackingNumber = (gettype($trackingNumerObj)=='array')
+                ? implode(" , ",$trackingNumerObj)
+                : $trackingNumerObj;
+        
+        $data = array(
+            'carrier_code' => 'Custom Value',
+            'title' => 'SCG Express',
+            'number' => $trackingNumber, // replace with SCG tracking number
+        );
 
-            // Register shipment
-            $shipment->register();
+        $shipment->getOrder()->setIsInProcess(true);
 
-            $data = array(
-                'carrier_code' => 'Custom Value',
-                'title' => 'SCG Express',
-                'number' => $trackingNumber, // Replace with SCG tracking number
-            );
+        try {
+            // save created shipment and order
+            $track = $this->_objectManager->create('Magento\Sales\Model\Order\Shipment\TrackFactory')->create()->addData($data);
+            $shipment->addTrack($track)->save();
+            $shipment->save();
+            $shipment->getOrder()->save();
 
-            $shipment->getOrder()->setIsInProcess(true);
+            // send email
+            // $this->_objectManager->create('Magento\Shipping\Model\ShipmentNotifier')
+            // ->notify($shipment);
 
-            try {
-                // Save created shipment and order
-                $track = $this->_objectManager->create('Magento\Sales\Model\Order\Shipment\TrackFactory')->create()->addData($data);
-                $shipment->addTrack($track)->save();
-                $shipment->save();
-                $shipment->getOrder()->save();
-
-                // // Send email
-                // $this->_objectManager->create('Magento\Shipping\Model\ShipmentNotifier')
-                // ->notify($shipment);
-
-                $shipment->save();
-            } catch (\Exception $e) {
-                $this->messageManager->addError(__($e->getMessage()));
-            }
+            $shipment->save();
+        } catch (\Exception $e) {
+            $this->messageManager->addError(__($e->getMessage()));
         }
     }
 
