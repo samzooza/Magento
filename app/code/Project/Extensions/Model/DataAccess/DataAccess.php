@@ -17,7 +17,7 @@ class DataAccess
             $client->setMethod('POST');
             
             $response = $client->send();
-            return json_decode($response->getbody(), true);
+            return $response->getbody();
         }
         catch (\Zend\Http\Exception\RuntimeException $runtimeException) 
         {

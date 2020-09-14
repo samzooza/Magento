@@ -15,7 +15,8 @@ class Scg extends DataAccess
             $this->uri.'/api/authentication',
             array(
                 'username' => $this->username,
-                'password' => $this->password));
+                'password' => $this->password
+            ));
     }
 
     public function PlaceOrder($token, $shipperCode, $shipperName, $shipperTel, $shipperAddress,
@@ -37,6 +38,12 @@ class Scg extends DataAccess
                 'Tel' => $tel,
                 'OrderCode' => $orderCode,
                 'TotalBoxs' => $totalBoxs,
-                'OrderDate' => $orderDate));
+                'OrderDate' => $orderDate
+            ));
+    }
+
+    public function GetMobileLabel($token, $tracking_numbers)
+    {
+        return $this->uri.'/api/getMobileLabel?token='.$token.'&tracking_number='.$tracking_numbers;
     }
 }

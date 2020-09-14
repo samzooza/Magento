@@ -6,7 +6,6 @@ use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
 use Magento\Backend\App\Action\Context;
 use Magento\Ui\Component\MassAction\Filter;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
-use Magento\Sales\Api\OrderManagementInterface;
 use Magento\Customer\Model\Customer;
 
 use Project\Extensions\Model\Scg;
@@ -17,33 +16,30 @@ use Project\Extensions\Model\Scg;
 class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractMassAction
 {
     /**
-     * @var OrderManagementInterface
+     * @var Customer
      * @var Scg
      */
-    protected $orderManagement;
     protected $customer;
     protected $scg;
     private $reAuthenFlag;
     private $token = '';
-    
+
     /**
      * @param Context $context
      * @param Filter $filter
      * @param CollectionFactory $collectionFactory
-     * @param OrderManagementInterface $orderManagement
+     * @param Customer $customer
      * @param Scg $scg
      */
     public function __construct(
         Context $context,
         Filter $filter,
         CollectionFactory $collectionFactory,
-        OrderManagementInterface $orderManagement,
         Customer $customer,
         Scg $scg
     ) {
         parent::__construct($context, $filter);
         $this->collectionFactory = $collectionFactory;
-        $this->orderManagement = $orderManagement;
         $this->customer = $customer;
         $this->scg = $scg;
     }
@@ -60,12 +56,10 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
         $this->reAuthenFlag = false;
         $this->token = $this->Authentication();
 
-        $model = $this->_objectManager->create('Magento\Sales\Model\Order');
-
         foreach ($collection->getItems() as $order)
         {   // check the order can ship out
-            if (! $order->canShip()) {
-                $this->messageManager->addError(__('ID '.$order->getEntityId().': You can\'t create an shipment.'));
+            if (!$order->canShip()) {
+                $this->messageManager->addError(__('ID '.strval($order->getEntityId()).': You can\'t create an shipment.'));
                 continue;
             }
 
@@ -73,14 +67,13 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
             $response = $this->PlaceOrder($order);
             if(!$response['status'])
             {
-                $this->messageManager->addError(__('ID '.$order->getEntityId().': '.$response['message']));
+                $this->messageManager->addError(__('ID '.strval($order->getEntityId()).': '.$response['message']));
                 continue;
             }
 
             $this->Ship($order, $response['trackingNumber']);
+            $this->messageManager->addSuccess(__('ID '.strval($order->getEntityId()).': Process successful.'));
         }
-
-        $this->messageManager->addSuccess(__('ID '.$order->getEntityId().': Process successful.'));
 
         return $this->Refresh();
     }
@@ -89,7 +82,7 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
     {   // able to authen only token is empty
         if($this->token == '')
         {
-            $response = $this->scg->Authentication();
+            $response = json_decode($this->scg->Authentication(), true);
 
             if(!$response['status'])
             {   // fail, return error
@@ -107,20 +100,22 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
     {
         $shippingAddress = $order->getShippingAddress();
 
-        $response = $this->scg->PlaceOrder(
-            $this->token,
-            '10214110143',
-            'SAS Online Shop',
-            '0999999997',
-            'Bankok',
-            '10000',
-            $shippingAddress->getData("street").' '.$shippingAddress->getData("city"),
-            $shippingAddress->getData("postcode"),
-            $shippingAddress->getData("firstname").' '.$shippingAddress->getData("lastname"),
-            $shippingAddress->getData("telephone"),
-            $order->getEntityId(),
-            '1',
-            date("Y-m-d"));
+        $response = json_decode(
+            $this->scg->PlaceOrder(
+                $this->token,
+                '00214110143',
+                'SAS Online Shop',
+                '0999999997',
+                '102/34 ซอยนวมินทร์89 ถนนนวมินทร์ เขตบึงกุ่ม แขวงคลองกุ่ม กรุงเทพ',
+                '10110',
+                $shippingAddress->getData("street").' '.$shippingAddress->getData("city"),
+                $shippingAddress->getData("postcode"),
+                $shippingAddress->getData("firstname").' '.$shippingAddress->getData("lastname"),
+                $shippingAddress->getData("telephone"),
+                $order->getEntityId(),
+                '1',
+                date("Y-m-d")
+            ), true);
         
         // fail safe: existing token might be expired, try to re-authenticate to get a new one
         if(!$response['status'] && !$this->reAuthenFlag && $response['message'] == 'token is not valid')
