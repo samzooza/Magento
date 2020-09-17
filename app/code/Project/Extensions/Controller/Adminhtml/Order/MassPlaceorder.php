@@ -21,8 +21,6 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
      */
     protected $customer;
     protected $scg;
-    private $reAuthenFlag;
-    private $token = '';
 
     /**
      * @param Context $context
@@ -52,10 +50,6 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
      */
     protected function massAction(AbstractCollection $collection)
     {
-        // authentication
-        $this->reAuthenFlag = false;
-        $this->token = $this->Authentication();
-
         foreach ($collection->getItems() as $order)
         {   // check the order can ship out
             if (!$order->canShip()) {
@@ -78,56 +72,23 @@ class MassPlaceorder extends \Magento\Sales\Controller\Adminhtml\Order\AbstractM
         return $this->Refresh();
     }
 
-    protected function Authentication()
-    {   // able to authen only token is empty
-        if($this->token == '')
-        {
-            $response = json_decode($this->scg->Authentication(), true);
-
-            if(!$response['status'])
-            {   // fail, return error
-                $this->messageManager->addError(__($response['message']));
-                return $this->Refresh();
-            }
-            else // successful
-                return $response['token'];
-        }
-        else // return existing one
-            return $this->token;
-    }
-
     protected function PlaceOrder($order)
     {
         $shippingAddress = $order->getShippingAddress();
 
-        $response = json_decode(
-            $this->scg->PlaceOrder(
-                $this->token,
-                '00214110143',
-                'SAS Online Shop',
-                '0999999997',
-                '102/34 ซอยนวมินทร์89 ถนนนวมินทร์ เขตบึงกุ่ม แขวงคลองกุ่ม กรุงเทพ',
-                '10110',
-                $shippingAddress->getData("street").' '.$shippingAddress->getData("city"),
-                $shippingAddress->getData("postcode"),
-                $shippingAddress->getData("firstname").' '.$shippingAddress->getData("lastname"),
-                $shippingAddress->getData("telephone"),
-                $order->getEntityId(),
-                '1',
-                date("Y-m-d")
-            ), true);
-        
-        // fail safe: existing token might be expired, try to re-authenticate to get a new one
-        if(!$response['status'] && !$this->reAuthenFlag && $response['message'] == 'token is not valid')
-            if(!$this->reAuthenFlag)
-            {
-                $this->reAuthenFlag = true;
-                $this->token = '';
-                $this->Authentication();
-                return $this->PlaceOrder($order);
-            }
-        
-        return $response;
+        return $this->scg->PlaceOrder(
+            '00214110143',
+            'Siam Agri Supply Co., Ltd.',
+            '0218565989',
+            '386 Srinakarin Road, Nongbon, Prawet, Bangkok 10250, Thailand',
+            '10250',
+            $shippingAddress->getData("street").' '.$shippingAddress->getData("city"),
+            $shippingAddress->getData("postcode"),
+            $shippingAddress->getData("firstname").' '.$shippingAddress->getData("lastname"),
+            $shippingAddress->getData("telephone"),
+            $order->getEntityId(),
+            '1',
+            date("Y-m-d"));
     }
 
     protected function Ship($order, $trackingNumerObj): void

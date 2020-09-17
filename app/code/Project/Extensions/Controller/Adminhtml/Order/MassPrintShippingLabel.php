@@ -20,8 +20,8 @@ class MassPrintShippingLabel extends \Magento\Sales\Controller\Adminhtml\Order\A
     protected $fileFactory;
     protected $filesystem;
     protected $scg;
-    private $reAuthenFlag;
-    private $token = '';
+    // private $reAuthenFlag;
+    // private $token = '';
     
     /**
      * @param Context $context
@@ -54,10 +54,6 @@ class MassPrintShippingLabel extends \Magento\Sales\Controller\Adminhtml\Order\A
      */
     protected function massAction(AbstractCollection $collection)
     {
-        // authentication
-        $this->reAuthenFlag = false;
-        $this->token = $this->Authentication();
-
         $trackingNumbers = array();
 
         foreach ($collection->getItems() as $order)
@@ -69,37 +65,21 @@ class MassPrintShippingLabel extends \Magento\Sales\Controller\Adminhtml\Order\A
                     array_push($trackingNumbers, $track->getTrackNumber());
         }
         
-        // Print shipping labels
-        $response = $this->scg->GetMobileLabel(
-            $this->token,
-            join(",", $trackingNumbers));
-
-        // Save file into temp
-        $filename = $this->SaveFile($response);
-
-        return $this->fileFactory->create('shipping_labels.pdf', [
-            'type' => 'filename',
-            'value' => $filename,
-            'rm' => true,
-        ]);
-    }
-
-    protected function Authentication()
-    {   // able to authen only token is empty
-        if($this->token == '')
+        if(isset($trackingNumbers))
         {
-            $response = json_decode($this->scg->Authentication(), true);
+            // Print shipping labels
+            $response = $this->scg->GetMobileLabel(
+                join(",", $trackingNumbers));
 
-            if(!$response['status'])
-            {   // fail, return error
-                $this->messageManager->addError(__($response['message']));
-                return $this->Refresh();
-            }
-            else // successful
-                return $response['token'];
+            // Save file into temp
+            $filename = $this->SaveFile($response);
+
+            return $this->fileFactory->create('shipping_labels.pdf', [
+                'type' => 'filename',
+                'value' => $filename,
+                'rm' => true,
+            ]);
         }
-        else // return existing one
-            return $this->token;
     }
 
     public function SaveFile($response)
